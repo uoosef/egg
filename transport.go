@@ -35,6 +35,9 @@ func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
 					},
 				},
 			}
+			if addr == RelayAddressToReplace {
+				addr = RelayAddress
+			}
 			return dialer.DialContext(ctx, network, addr)
 		},
 
