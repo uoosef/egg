@@ -83,13 +83,11 @@ func wsClient(req *SocksReq, socksStream *Request, endpoint string) {
 	// writing request block size(2 bytes)
 	conn.Write(bs)
 
-	// writing actual block
-	fmt.Println(reqAck.Bytes())
 	conn.Write(reqAck.Bytes())
 
 	// Start proxying
 	errCh := make(chan error, 2)
-	go func() { errCh <- Copy(bufio.NewWriter(conn), socksStream.request.Reader) }()
+	go func() { errCh <- Copy(bufio.NewWriter(conn), socksStream.reader) }()
 	go func() { errCh <- Copy(socksStream.writer, bufio.NewReader(conn)) }()
 
 	// Wait
@@ -113,3 +111,17 @@ func wsClient(req *SocksReq, socksStream *Request, endpoint string) {
 	socksStream.closeSignal <- nil
 }
 
+func relayClient(req *SocksReq, socksStream *Request, endpoint string) {
+	// connect to remote server via ws
+	uploadConn, err := wsDialer(context.Background(), endpoint)
+	if err != nil {
+		if err := socks5.SendReply(socksStream.writer, statute.RepServerFailure, nil); err != nil {
+			socksStream.closeSignal <- err
+			return
+		}
+		socksStream.closeSignal <- err
+		fmt.Printf("Can not connect: %v\n", err)
+		return
+	}
+
+}

@@ -22,7 +22,7 @@ type SocksReq struct {
 func (c *Handle) handleTCPConnect(ctx context.Context, writer io.Writer, request *socks5.Request) error {
 	fmt.Println(request.RawDestAddr)
 	closeSignal := make(chan error)
-	id := c.cp.NewConnection(TCP, closeSignal, ctx, writer, request)
+	id := c.cp.NewConnection(TCP, closeSignal, ctx, writer, request.Reader)
 
 	// it informs the socks client that connection to remote host was successfully established
 	if err := socks5.SendReply(writer, statute.RepSuccess, nil); err != nil {
@@ -46,7 +46,7 @@ func (c *Handle) handleTCPConnect(ctx context.Context, writer io.Writer, request
 func (c *Handle) handleUDPAssociate(ctx context.Context, writer io.Writer, request *socks5.Request) error {
 	fmt.Println(request.RawDestAddr)
 	closeSignal := make(chan error)
-	id := c.cp.NewConnection(TCP, closeSignal, ctx, writer, request)
+	id := c.cp.NewConnection(UDP, closeSignal, ctx, writer, request.Reader)
 
 	// it informs the socks client that connection to remote host was successfully established
 	if err := socks5.SendReply(writer, statute.RepSuccess, nil); err != nil {

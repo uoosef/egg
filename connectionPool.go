@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"egg/socks5"
 	"io"
 	"net"
 	"net/http"
@@ -12,19 +11,12 @@ type ConnectionPool struct {
 	cache *Cache
 }
 
-type NetworkType int32
-
-const (
-	TCP NetworkType = 0
-	UDP NetworkType = 1
-)
-
 type Request struct {
 	id          string // A unique id to identify a connection
 	network     NetworkType
 	ctx         context.Context
 	writer      io.Writer
-	request     *socks5.Request
+	reader      io.Reader
 	closeSignal chan error
 }
 
@@ -41,14 +33,14 @@ func NewConnectionPool() *ConnectionPool {
 	}
 }
 
-func (cp *ConnectionPool) NewConnection(t NetworkType, closeSignal chan error, ctx context.Context, writer io.Writer, request *socks5.Request) string {
+func (cp *ConnectionPool) NewConnection(t NetworkType, closeSignal chan error, ctx context.Context, writer io.Writer, reader io.Reader) string {
 	cID := NewUUID()
 	cp.cache.Set(cID, Request{
 		cID,
 		t,
 		ctx,
 		writer,
-		request,
+		reader,
 		closeSignal,
 	})
 	return cID
