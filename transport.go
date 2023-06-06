@@ -35,7 +35,7 @@ func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
 					},
 				},
 			}
-			if addr == RelayAddressToReplace {
+			if ShouldRelayed && addr == RelayAddressToReplace {
 				addr = RelayAddress
 			}
 			return dialer.DialContext(ctx, network, addr)
@@ -55,7 +55,7 @@ func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
 	return
 }
 
-func wsClient(req *SocksReq, socksStream *Request, endpoint string) {
+func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathType PathType) {
 	// connect to remote server via ws
 	conn, err := wsDialer(context.Background(), endpoint)
 	if err != nil {
@@ -68,12 +68,19 @@ func wsClient(req *SocksReq, socksStream *Request, endpoint string) {
 		return
 	}
 
-	fmt.Printf("%s connected\n", req.Id)
+	fmt.Printf("%s connected\n", socksReq.Id)
 
-	var reqAck bytes.Buffer        // Stand-in for a network connection
-	enc := gob.NewEncoder(&reqAck) // Will write to network.
+	pathReq := PathReq{
+		socksReq.Id,
+		socksReq.Dest,
+		socksReq.Net,
+		pathType,
+	}
+
+	var sendBuffer bytes.Buffer        // Stand-in for a network connection
+	enc := gob.NewEncoder(&sendBuffer) // Will write to network.
 	// Encode (send) the value.
-	err = enc.Encode(&req)
+	err = enc.Encode(&pathReq)
 	if err != nil {
 		socksStream.closeSignal <- err
 		fmt.Println("encode error:", err)
@@ -81,20 +88,32 @@ func wsClient(req *SocksReq, socksStream *Request, endpoint string) {
 	}
 
 	bs := make([]byte, 2)
-	binary.BigEndian.PutUint16(bs, uint16(len(reqAck.Bytes())))
+	binary.BigEndian.PutUint16(bs, uint16(len(sendBuffer.Bytes())))
 
 	// writing request block size(2 bytes)
 	conn.Write(bs)
 
-	conn.Write(reqAck.Bytes())
+	conn.Write(sendBuffer.Bytes())
 
 	// Start proxying
-	errCh := make(chan error, 2)
-	go func() { errCh <- Copy(bufio.NewWriter(conn), socksStream.reader) }()
-	go func() { errCh <- Copy(socksStream.writer, bufio.NewReader(conn)) }()
+	chanNums := 1
+	if pathType == TwoWay {
+		chanNums = 2
+	}
+	errCh := make(chan error, chanNums)
+
+	// upload path
+	if pathType == TwoWay || pathType == Upload {
+		go func() { errCh <- Copy(bufio.NewWriter(conn), socksStream.reader) }()
+	}
+
+	// download path
+	if pathType == TwoWay || pathType == Download {
+		go func() { errCh <- Copy(socksStream.writer, bufio.NewReader(conn)) }()
+	}
 
 	// Wait
-	for i := 0; i < 2; i++ {
+	for i := 0; i < chanNums; i++ {
 		e := <-errCh
 		if e != nil {
 			// return from this function closes target (and conn).
@@ -114,17 +133,12 @@ func wsClient(req *SocksReq, socksStream *Request, endpoint string) {
 	socksStream.closeSignal <- nil
 }
 
-func relayClient(req *SocksReq, socksStream *Request, endpoint string) {
-	// connect to remote server via ws
-	uploadConn, err := wsDialer(context.Background(), endpoint)
-	if err != nil {
-		if err := socks5.SendReply(socksStream.writer, statute.RepServerFailure, nil); err != nil {
-			socksStream.closeSignal <- err
-			return
-		}
-		socksStream.closeSignal <- err
-		fmt.Printf("Can not connect: %v\n", err)
-		return
-	}
+func relayClient(socksReq *SocksReq, socksStream *Request, endpoint string) {
+	// connect to remote server via ws for upload
+	ShouldRelayed = true
+	wsClient(socksReq, socksStream, endpoint, Upload)
 
+	// connect to remote server via ws for download
+	ShouldRelayed = false
+	wsClient(socksReq, socksStream, endpoint, Download)
 }

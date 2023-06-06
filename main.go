@@ -60,14 +60,15 @@ func main() {
 	} else if options.Mode == "client" {
 		// run client mode, ie open http server and listen to incoming requests from internet
 		fmt.Printf("Starting client at %s ...\n", options.Bind)
-		srv, _ := NewClient(options.Server)
+		srv, _ := NewClient(options.Server, false)
 		err := srv.ListenAndServe("tcp", options.Bind)
 		if err != nil {
 			panic("unable to listen to " + options.Bind)
 		}
 	} else {
+		// run client mode, ie open http server and listen to incoming requests from internet
 		fmt.Printf("Starting realay at %s forwarding to %s...\n", options.Bind, options.Upath)
-		srv, _ := NewClient(options.Server)
+		srv, _ := NewClient(options.Server, true)
 		err := srv.ListenAndServe("tcp", options.Upath)
 		if err != nil {
 			panic("unable to listen to " + options.Bind)

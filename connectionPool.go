@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"net/http"
 )
 
 type ConnectionPool struct {
@@ -21,10 +20,8 @@ type Request struct {
 }
 
 type ServerConnection struct {
-	id      string // A unique id to identify a connection
-	network NetworkType
-	writer  *http.ResponseWriter
-	conn    *net.TCPConn
+	id   string // A unique id to identify a connection
+	conn net.Conn
 }
 
 func NewConnectionPool() *ConnectionPool {
@@ -46,11 +43,9 @@ func (cp *ConnectionPool) NewConnection(t NetworkType, closeSignal chan error, c
 	return cID
 }
 
-func (cp *ConnectionPool) NewSrvConnection(id string, t NetworkType, writer *http.ResponseWriter, conn *net.TCPConn) {
+func (cp *ConnectionPool) NewSrvConnection(id string, conn net.Conn) {
 	cp.cache.Set(id, ServerConnection{
 		id,
-		t,
-		writer,
 		conn,
 	})
 }
@@ -60,9 +55,9 @@ func (cp *ConnectionPool) GetConnection(cID string) (Request, bool) {
 	return c.(Request), found
 }
 
-func (cp *ConnectionPool) GetSrvConnection(cID string) (ServerConnection, bool) {
+func (cp *ConnectionPool) GetSrvConnection(cID string) (net.Conn, bool) {
 	c, found := cp.cache.Get(cID)
-	return c.(ServerConnection), found
+	return c.(ServerConnection).conn, found
 }
 
 func (cp *ConnectionPool) RmConnection(cID string) {

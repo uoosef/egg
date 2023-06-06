@@ -4,7 +4,7 @@ import (
 	"egg/socks5"
 )
 
-func NewClient(endpoint string) (*socks5.Server, error) {
+func NewClient(endpoint string, relayEnabled bool) (*socks5.Server, error) {
 	fifo := NewFIFO()
 	cp := NewConnectionPool()
 	h := Handle{
@@ -15,6 +15,6 @@ func NewClient(endpoint string) (*socks5.Server, error) {
 		socks5.WithConnectHandle(h.handleTCPConnect),
 		socks5.WithAssociateHandle(h.handleUDPAssociate),
 	)
-	go Scheduler(fifo, cp, endpoint)
+	go Scheduler(fifo, cp, endpoint, relayEnabled)
 	return s5, nil
 }

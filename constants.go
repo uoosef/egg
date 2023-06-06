@@ -7,15 +7,16 @@ const (
 	UDP NetworkType = 1
 )
 
-type ConnectionType int32
+type PathType int32
 
 const (
-	Upload   ConnectionType = 0
-	Download ConnectionType = 1
-	TwoWay   ConnectionType = 2
+	Upload   PathType = 0
+	Download PathType = 1
+	TwoWay   PathType = 2
 )
 
 var (
+	ShouldRelayed         bool   = false
 	RelayAddress          string = ""
 	RelayAddressToReplace string = ""
 )

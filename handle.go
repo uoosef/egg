@@ -19,6 +19,13 @@ type SocksReq struct {
 	Net  NetworkType
 }
 
+type PathReq struct {
+	Id    string
+	Dest  string
+	Net   NetworkType
+	PType PathType
+}
+
 func (c *Handle) handleTCPConnect(ctx context.Context, writer io.Writer, request *socks5.Request) error {
 	fmt.Println(request.RawDestAddr)
 	closeSignal := make(chan error)

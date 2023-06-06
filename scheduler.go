@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func Scheduler(fifo *FIFO, cp *ConnectionPool, endpoint string) {
+func Scheduler(fifo *FIFO, cp *ConnectionPool, endpoint string, relayEnabled bool) {
 	for {
 		fmt.Println("waiting for new element in queue")
 		r, err := fifo.DequeueOrWaitForNextElement()
@@ -16,6 +16,10 @@ func Scheduler(fifo *FIFO, cp *ConnectionPool, endpoint string) {
 		if !found {
 			panic("the connection with following connection id missing: " + req.Id)
 		}
-		go wsClient(req, &socksReq, endpoint)
+		if relayEnabled {
+			go relayClient(req, &socksReq, endpoint)
+		} else {
+			go wsClient(req, &socksReq, endpoint, TwoWay)
+		}
 	}
 }
