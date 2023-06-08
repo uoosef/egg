@@ -1,21 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
-	"context"
 	"egg/socks5"
 	"egg/socks5/statute"
+	"egg/wsconnadapter"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
-	"github.com/gobwas/ws"
-	tls "github.com/refraction-networking/utls"
-	"net"
-	"time"
+	"github.com/gorilla/websocket"
 )
 
-func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
+/*func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
 	dialer := ws.Dialer{
 		NetDial: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			var (
@@ -41,7 +37,7 @@ func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
 			return dialer.DialContext(ctx, network, addr)
 		},
 
-		TLSClient: func(conn net.Conn, hostname string) net.Conn {
+		/*LSClient: func(conn net.Conn, hostname string) net.Conn {
 			config := tls.Config{
 				ServerName:             hostname,
 				InsecureSkipTimeVerify: true,
@@ -53,11 +49,11 @@ func wsDialer(ctx context.Context, url string) (conn net.Conn, err error) {
 
 	conn, _, _, err = dialer.Dial(ctx, url)
 	return
-}
+}*/
 
 func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathType PathType) {
 	// connect to remote server via ws
-	conn, err := wsDialer(context.Background(), endpoint)
+	wsConn, _, err := websocket.DefaultDialer.Dial(endpoint, nil)
 	if err != nil {
 		if err := socks5.SendReply(socksStream.writer, statute.RepServerFailure, nil); err != nil {
 			socksStream.closeSignal <- err
@@ -69,6 +65,8 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 	}
 
 	fmt.Printf("%s connected\n", socksReq.Id)
+
+	conn := wsconnadapter.New(wsConn)
 
 	pathReq := PathReq{
 		socksReq.Id,
@@ -91,46 +89,9 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 	binary.BigEndian.PutUint16(bs, uint16(len(sendBuffer.Bytes())))
 
 	// writing request block size(2 bytes)
-	conn.Write(bs)
+	conn.Write(append(bs, sendBuffer.Bytes()...))
 
-	conn.Write(sendBuffer.Bytes())
-
-	// Start proxying
-	chanNums := 1
-	if pathType == TwoWay {
-		chanNums = 2
-	}
-	errCh := make(chan error, chanNums)
-
-	// upload path
-	if pathType == TwoWay || pathType == Upload {
-		go func() { errCh <- Copy(bufio.NewWriter(conn), socksStream.reader) }()
-	}
-
-	// download path
-	if pathType == TwoWay || pathType == Download {
-		go func() { errCh <- Copy(socksStream.writer, bufio.NewReader(conn)) }()
-	}
-
-	// Wait
-	for i := 0; i < chanNums; i++ {
-		e := <-errCh
-		if e != nil {
-			// return from this function closes target (and conn).
-			socksStream.closeSignal <- err
-			fmt.Println("encode error:", err)
-			return
-		}
-	}
-
-	err = conn.Close()
-	if err != nil {
-		socksStream.closeSignal <- err
-		fmt.Println("encode error:", err)
-		return
-	}
-
-	socksStream.closeSignal <- nil
+	go Copy(conn, socksStream.reader, socksStream.writer)
 }
 
 func relayClient(socksReq *SocksReq, socksStream *Request, endpoint string) {

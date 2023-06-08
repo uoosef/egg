@@ -57,6 +57,9 @@ func (cp *ConnectionPool) GetConnection(cID string) (Request, bool) {
 
 func (cp *ConnectionPool) GetSrvConnection(cID string) (net.Conn, bool) {
 	c, found := cp.cache.Get(cID)
+	if !found {
+		return nil, false
+	}
 	return c.(ServerConnection).conn, found
 }
 
