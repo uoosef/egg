@@ -80,7 +80,9 @@ func (sf *Server) ws(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go Copy(conn, io.Reader(destConn), io.Writer(destConn))
+	Copy(conn, io.Reader(destConn), io.Writer(destConn))
+	destConn.Close()
+	conn.Close()
 }
 
 func (sf *Server) ListenAndServe(addr string) error {

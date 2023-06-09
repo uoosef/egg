@@ -91,7 +91,9 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 	// writing request block size(2 bytes)
 	conn.Write(append(bs, sendBuffer.Bytes()...))
 
-	go Copy(conn, socksStream.reader, socksStream.writer)
+	Copy(conn, socksStream.reader, socksStream.writer)
+	conn.Close()
+	socksStream.closeSignal <- nil
 }
 
 func relayClient(socksReq *SocksReq, socksStream *Request, endpoint string) {
