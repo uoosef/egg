@@ -37,5 +37,24 @@ func handleRequest(conn net.Conn, server string) {
 		return
 	}
 	log.Printf("Forwarding from %v to %v\n", conn.LocalAddr(), client.RemoteAddr())
-	//TODO
+
+	/*errCh := make(chan error, 2)
+
+	go func() { errCh <- Copy(bufio.NewWriter(conn), bufio.NewReader(client)) }()
+	go func() { errCh <- Copy(bufio.NewWriter(client), bufio.NewReader(conn)) }()
+
+	// Wait
+	for i := 0; i < 2; i++ {
+		if <-errCh != nil {
+			// return from this function closes target (and conn).
+			fmt.Println("encode error:", err)
+			return
+		}
+	}
+
+	err = conn.Close()
+	if err != nil {
+		fmt.Println("encode error:", err)
+		return
+	}*/
 }

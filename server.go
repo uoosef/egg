@@ -80,7 +80,20 @@ func (sf *Server) ws(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	Copy(conn, io.Reader(destConn), io.Writer(destConn))
+	errCh := make(chan error, 2)
+
+	// upload path
+	go func() { errCh <- Copy(conn, destConn) }()
+
+	// download path
+	go func() { errCh <- Copy(destConn, conn) }()
+
+	// Wait
+	err = <-errCh
+	if err != nil {
+		fmt.Println("transport error:", err)
+	}
+
 	destConn.Close()
 	conn.Close()
 }

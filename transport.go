@@ -91,7 +91,20 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 	// writing request block size(2 bytes)
 	conn.Write(append(bs, sendBuffer.Bytes()...))
 
-	Copy(conn, socksStream.reader, socksStream.writer)
+	errCh := make(chan error, 2)
+
+	// upload path
+	go func() { errCh <- Copy(socksStream.reader, conn) }()
+
+	// download path
+	go func() { errCh <- Copy(conn, socksStream.writer) }()
+
+	// Wait
+	err = <-errCh
+	if err != nil {
+		fmt.Println("transport error:", err)
+	}
+
 	conn.Close()
 	socksStream.closeSignal <- nil
 }
