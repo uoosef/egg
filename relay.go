@@ -38,23 +38,20 @@ func handleRequest(conn net.Conn, server string) {
 	}
 	log.Printf("Forwarding from %v to %v\n", conn.LocalAddr(), client.RemoteAddr())
 
-	/*errCh := make(chan error, 2)
+	errCh := make(chan error, 2)
 
-	go func() { errCh <- Copy(bufio.NewWriter(conn), bufio.NewReader(client)) }()
-	go func() { errCh <- Copy(bufio.NewWriter(client), bufio.NewReader(conn)) }()
+	// upload path
+	go func() { errCh <- Copy(client, conn) }()
+
+	// download path
+	go func() { errCh <- Copy(conn, client) }()
 
 	// Wait
-	for i := 0; i < 2; i++ {
-		if <-errCh != nil {
-			// return from this function closes target (and conn).
-			fmt.Println("encode error:", err)
-			return
-		}
+	err = <-errCh
+	if err != nil {
+		fmt.Println("transport error:", err)
 	}
 
-	err = conn.Close()
-	if err != nil {
-		fmt.Println("encode error:", err)
-		return
-	}*/
+	client.Close()
+	conn.Close()
 }
