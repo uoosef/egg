@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func NewRelay(bind string, server string) {
+func NewRelay(bind string, server string) error {
 	// Listen for incoming connections.
 	l, err := net.Listen("tcp", bind)
 	if err != nil {
@@ -21,7 +21,7 @@ func NewRelay(bind string, server string) {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting: ", err.Error())
-			os.Exit(1)
+			return err
 		}
 		// Handle connections in a new goroutine.
 		go handleRequest(conn, server)
