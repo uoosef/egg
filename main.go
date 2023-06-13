@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -44,6 +45,10 @@ func (c *ClientCMD) Execute(_ []string) error {
 	fmt.Printf("Starting client at %s ...\n", c.Bind)
 	var srv *socks5.Server
 	if c.Upath != "" {
+		u, _ := url.Parse(c.Server)
+		fmt.Println(u.Host)
+		RelayAddress = c.Upath
+		RelayAddressToReplace = u.Host
 		srv, _ = NewClient(c.Server, true)
 	} else {
 		srv, _ = NewClient(c.Server, false)
