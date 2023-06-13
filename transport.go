@@ -21,7 +21,7 @@ var portMap = map[string]string{
 	"https": "443",
 }
 
-func plainTCPDial(ctx context.Context, network, addr string) (net.Conn, error) {
+func plainTCPDial(ctx context.Context, network, addr string, pathType PathType) (net.Conn, error) {
 	var (
 		dnsResolverIP        = "8.8.8.8:53" // Google DNS resolver.
 		dnsResolverProto     = "udp"        // Protocol to use for the DNS resolver
@@ -39,18 +39,20 @@ func plainTCPDial(ctx context.Context, network, addr string) (net.Conn, error) {
 			},
 		},
 	}
-	if ShouldRelayed && addr == RelayAddressToReplace {
+	if pathType == Upload && strings.Contains(addr, RelayAddressToReplace) {
 		addr = RelayAddress
 	}
 	return dialer.DialContext(ctx, network, addr)
 }
 
-func wsDialer(address string) (*websocket.Conn, error) {
+func wsDialer(address string, pathType PathType) (*websocket.Conn, error) {
 	dialer := websocket.Dialer{
-		NetDialContext: plainTCPDial,
+		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return plainTCPDial(ctx, network, addr, pathType)
+		},
 
 		NetDialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			plainConn, err := plainTCPDial(ctx, network, addr)
+			plainConn, err := plainTCPDial(ctx, network, addr, pathType)
 			if err != nil {
 				return nil, err
 			}
@@ -74,7 +76,7 @@ func wsDialer(address string) (*websocket.Conn, error) {
 
 func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathType PathType) {
 	// connect to remote server via ws
-	wsConn, err := wsDialer(endpoint)
+	wsConn, err := wsDialer(endpoint, pathType)
 	if err != nil {
 		if err := socks5.SendReply(socksStream.writer, statute.RepServerFailure, nil); err != nil {
 			socksStream.closeSignal <- err
@@ -115,10 +117,14 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 	errCh := make(chan error, 2)
 
 	// upload path
-	go func() { errCh <- Copy(socksStream.reader, conn) }()
+	if pathType == Upload || pathType == TwoWay {
+		go func() { errCh <- Copy(socksStream.reader, conn) }()
+	}
 
 	// download path
-	go func() { errCh <- Copy(conn, socksStream.writer) }()
+	if pathType == Download || pathType == TwoWay {
+		go func() { errCh <- Copy(conn, socksStream.writer) }()
+	}
 
 	// Wait
 	err = <-errCh
@@ -132,10 +138,8 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 
 func relayClient(socksReq *SocksReq, socksStream *Request, endpoint string) {
 	// connect to remote server via ws for upload
-	ShouldRelayed = true
-	wsClient(socksReq, socksStream, endpoint, Upload)
+	go wsClient(socksReq, socksStream, endpoint, Upload)
 
 	// connect to remote server via ws for download
-	ShouldRelayed = false
 	wsClient(socksReq, socksStream, endpoint, Download)
 }

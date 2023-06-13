@@ -60,7 +60,7 @@ func (sf *Server) ws(w http.ResponseWriter, r *http.Request) {
 
 	var destConn net.Conn
 
-	destConn, found := sf.cp.GetSrvConnection(q.Dest)
+	destConn, found := sf.cp.GetSrvConnection(q.Id)
 
 	if !found {
 		// connect to remote server
@@ -83,10 +83,14 @@ func (sf *Server) ws(w http.ResponseWriter, r *http.Request) {
 	errCh := make(chan error, 2)
 
 	// upload path
-	go func() { errCh <- Copy(conn, destConn) }()
+	if q.PType == Upload || q.PType == TwoWay {
+		go func() { errCh <- Copy(conn, destConn) }()
+	}
 
 	// download path
-	go func() { errCh <- Copy(destConn, conn) }()
+	if q.PType == Download || q.PType == TwoWay {
+		go func() { errCh <- Copy(destConn, conn) }()
+	}
 
 	// Wait
 	err = <-errCh

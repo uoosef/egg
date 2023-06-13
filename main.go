@@ -46,7 +46,6 @@ func (c *ClientCMD) Execute(_ []string) error {
 	var srv *socks5.Server
 	if c.Upath != "" {
 		u, _ := url.Parse(c.Server)
-		fmt.Println(u.Host)
 		RelayAddress = c.Upath
 		RelayAddressToReplace = u.Host
 		srv, _ = NewClient(c.Server, true)

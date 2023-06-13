@@ -16,7 +16,6 @@ const (
 )
 
 var (
-	ShouldRelayed         bool   = false
 	RelayAddress          string = ""
 	RelayAddressToReplace string = ""
 )
