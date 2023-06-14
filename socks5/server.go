@@ -3,13 +3,13 @@ package socks5
 import (
 	"bufio"
 	"context"
+	"egg/bufferpool"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
 
-	"egg/socks5/bufferpool"
 	"egg/socks5/statute"
 )
 

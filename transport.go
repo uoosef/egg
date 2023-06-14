@@ -128,7 +128,7 @@ func wsClient(socksReq *SocksReq, socksStream *Request, endpoint string, pathTyp
 
 	// Wait
 	err = <-errCh
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "websocket: close 1006") {
 		fmt.Println("transport error:", err)
 	}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"egg/bufferpool"
 	"egg/socks5"
 	"errors"
 	"fmt"
@@ -78,6 +79,7 @@ var relayCMD RelayCMD
 var parser = flags.NewParser(nil, flags.Default)
 
 func init() {
+	// creating command parser
 	_, _ = parser.AddCommand("server",
 		"Server mode",
 		"It set's up a server a serve to incoming proxified connections from client and deliver them to actual dest",
@@ -92,6 +94,9 @@ func init() {
 		"Relay mode",
 		"It set's up a relay server and forward's all incoming connections to a destination address",
 		&relayCMD)
+
+	// creating buffer pool
+	BufferPool = bufferpool.NewPool(32 * 1024)
 }
 
 func cleanup() {

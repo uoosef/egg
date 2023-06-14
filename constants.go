@@ -1,5 +1,7 @@
 package main
 
+import "egg/bufferpool"
+
 type NetworkType int32
 
 const (
@@ -18,4 +20,5 @@ const (
 var (
 	RelayAddress          string = ""
 	RelayAddressToReplace string = ""
+	BufferPool            bufferpool.BufPool
 )

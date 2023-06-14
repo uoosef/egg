@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 )
 
 type Server struct {
@@ -94,7 +95,7 @@ func (sf *Server) ws(w http.ResponseWriter, r *http.Request) {
 
 	// Wait
 	err = <-errCh
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "websocket: close 1006") {
 		fmt.Println("transport error:", err)
 	}
 

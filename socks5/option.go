@@ -2,10 +2,9 @@ package socks5
 
 import (
 	"context"
+	"egg/bufferpool"
 	"io"
 	"net"
-
-	"egg/socks5/bufferpool"
 )
 
 // Option user's option
