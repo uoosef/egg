@@ -19,12 +19,12 @@ type PermitCommand struct {
 	EnableAssociate bool
 }
 
-// NewPermitNone returns a RuleSet which disallows all types of connections
+// NewPermitNone returns a RuleSet which disallows all types of internet
 func NewPermitNone() RuleSet {
 	return &PermitCommand{false, false, false}
 }
 
-// NewPermitAll returns a RuleSet which allows all types of connections
+// NewPermitAll returns a RuleSet which allows all types of internet
 func NewPermitAll() RuleSet {
 	return &PermitCommand{true, true, true}
 }

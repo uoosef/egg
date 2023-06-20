@@ -1,14 +1,13 @@
 package scheduler
 
 import (
-	"egg/dial"
 	"net"
 )
 
 /*
 scheduler task is to get packets from client and write them to pre or post prepared network paths
-for mux it should establish finite number of connections to server and watch them that they dont get destroyed then
-relay the messages through them(network path must be antagonistic from actual "real" connections between client
+for mux it should establish finite number of internet to server and watch them that they dont get destroyed then
+relay the messages through them(network path must be antagonistic from actual "real" internet between client
 and destination server
 */
 
@@ -23,11 +22,7 @@ func NewScheduler(schedulerType string) *scheduler {
 	}
 }
 
-func newPersistenceNetConn() {
-	d := &dial.Dial{}
-}
-
-// sink is responsible for making actual network connections
+// sink is responsible for making actual network internet
 func sink() {
 
 }

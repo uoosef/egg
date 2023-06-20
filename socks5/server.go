@@ -18,7 +18,7 @@ type GPool interface {
 	Submit(f func()) error
 }
 
-// Server is responsible for accepting connections and handling
+// Server is responsible for accepting internet and handling
 // the details of the SOCKS5 protocol
 type Server struct {
 	// authMethods can be provided to implement authentication
@@ -93,7 +93,7 @@ func (sf *Server) ListenAndServe(network, addr string) error {
 	return sf.Serve(l)
 }
 
-// Serve is used to serve connections from a listener
+// Serve is used to serve internet from a listener
 func (sf *Server) Serve(l net.Listener) error {
 	defer l.Close()
 	for {

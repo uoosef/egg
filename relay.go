@@ -8,7 +8,7 @@ import (
 )
 
 func NewRelay(bind string, server string) error {
-	// Listen for incoming connections.
+	// Listen for incoming internet.
 	l, err := net.Listen("tcp", bind)
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
@@ -23,7 +23,7 @@ func NewRelay(bind string, server string) error {
 			fmt.Println("Error accepting: ", err.Error())
 			return err
 		}
-		// Handle connections in a new goroutine.
+		// Handle internet in a new goroutine.
 		go handleRequest(conn, server)
 	}
 }

@@ -46,7 +46,7 @@ func CopyToFifo(src io.Reader, dst *utils.FIFO, connectionId string) (err error)
 	for {
 		nr, er := src.Read(buf[:cap(buf)])
 		if nr > 0 {
-			ew := dst.Enqueue(&statute.NetResp{
+			ew := dst.Enqueue(&statute.TunnelPacketHeader{
 				CID:   connectionId,
 				Bytes: buf[:nr],
 			})

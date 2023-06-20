@@ -33,7 +33,15 @@ type PathReq struct {
 	PType PathType
 }
 
-type NetResp struct {
-	CID   string
-	Bytes []byte
+type TunnelPacketHeader struct {
+	Id          string
+	Command     CommandType
+	PayloadSize int
+	Sequence    int64
+}
+
+type QueuePacket struct {
+	Header *TunnelPacketHeader
+	Body   []byte
+	Err    error
 }

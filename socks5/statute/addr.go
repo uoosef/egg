@@ -16,7 +16,7 @@ type AddrSpec struct {
 	AddrType byte
 }
 
-// String returns a string suitable to dial; prefer returning IP-based
+// String returns a string suitable to internet; prefer returning IP-based
 // address, fallback to FQDN
 func (sf *AddrSpec) String() string {
 	if len(sf.IP) != 0 {
@@ -28,7 +28,7 @@ func (sf *AddrSpec) String() string {
 // Address returns a string which may be specified
 // if IPv4/IPv6 will return < ip:port >
 // if FQDN will return < domain ip:port >
-// Note: do not used to dial, Please use String
+// Note: do not used to internet, Please use String
 func (sf AddrSpec) Address() string {
 	if sf.FQDN != "" {
 		return fmt.Sprintf("%s (%s):%d", sf.FQDN, sf.IP, sf.Port)

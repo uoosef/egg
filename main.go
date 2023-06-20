@@ -37,7 +37,7 @@ var serverCMD ServerCMD
 type ClientCMD struct {
 	Bind     string `short:"b" long:"bind" default:":8585" description:"Binding address, where should socks proxy server listen to. default :5858"`
 	Server   string `short:"s" long:"server" default:"ws://127.0.0.1:8585/ws" description:"Remote websocket server address, it should starts with ws or wss and ends with ws path ex. wss://example.com/ws"`
-	Upath    string `short:"u" long:"upload" description:"Uploading part of connections will be forwarded to <ip>:<port>. for using it you must setup relay server first, then provide this argument with address of forwarding server. ex. example.com:5858"`
+	Upath    string `short:"u" long:"upload" description:"Uploading part of internet will be forwarded to <ip>:<port>. for using it you must setup relay server first, then provide this argument with address of forwarding server. ex. example.com:5858"`
 	Insecure bool   `short:"k" long:"insecure" description:"Allow to connect to insecure endpoints default: false. (not recommended)"`
 }
 
@@ -65,7 +65,7 @@ var clientCMD ClientCMD
 
 type RelayCMD struct {
 	Bind    string `short:"b" long:"bind" default:":8585" description:"Binding address, where should I listen to. client default: :8585, server default: :5858"`
-	Forward string `short:"f" long:"forward" description:"Specifies where should incoming tcp connections getting forward to <ip>:<port>"`
+	Forward string `short:"f" long:"forward" description:"Specifies where should incoming tcp internet getting forward to <ip>:<port>"`
 }
 
 func (r *RelayCMD) Execute(_ []string) error {
@@ -82,17 +82,17 @@ func init() {
 	// creating command parser
 	_, _ = parser.AddCommand("server",
 		"Server mode",
-		"It set's up a server a serve to incoming proxified connections from client and deliver them to actual dest",
+		"It set's up a server a serve to incoming proxified internet from client and deliver them to actual dest",
 		&serverCMD)
 
 	_, _ = parser.AddCommand("client",
 		"Client mode",
-		"It set's up a socks5 proxy server and forward its incoming connections to remote server",
+		"It set's up a socks5 proxy server and forward its incoming internet to remote server",
 		&clientCMD)
 
 	_, _ = parser.AddCommand("relay",
 		"Relay mode",
-		"It set's up a relay server and forward's all incoming connections to a destination address",
+		"It set's up a relay server and forward's all incoming internet to a destination address",
 		&relayCMD)
 
 	// creating buffer pool

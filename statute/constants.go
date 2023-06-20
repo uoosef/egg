@@ -17,6 +17,14 @@ const (
 	TwoWay   PathType = 2
 )
 
+type CommandType int32
+
+const (
+	StartFlow    CommandType = 0
+	ContinueFlow CommandType = 1
+	EndFlow      CommandType = 2
+)
+
 var (
 	RelayAddress          string = ""
 	RelayAddressToReplace string = ""

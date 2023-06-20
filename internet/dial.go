@@ -1,8 +1,7 @@
-package dial
+package internet
 
 import (
 	"context"
-	"egg/wsconnadapter"
 	"github.com/gorilla/websocket"
 	tls "github.com/refraction-networking/utls"
 	"net"
@@ -10,23 +9,22 @@ import (
 	"time"
 )
 
-type Dial struct {
-	ctx        			   context.Context
+type Connection struct {
 	addr                   string
 	overwriteAddr          string
 	shouldOverWriteAddress bool
 }
 
-func NewDial(ctx context.Context, addr, overwriteAddr string, shouldOverWriteAddress bool) *Dial{
-	return &Dial{
-		ctx,
+func Dial(addr, overwriteAddr string, shouldOverWriteAddress bool) (net.Conn, error) {
+	c := &Connection{
 		addr,
 		overwriteAddr,
 		shouldOverWriteAddress,
 	}
+	return c.wsDial()
 }
 
-func (d *Dial) plainTCPDial(ctx context.Context, network string) (net.Conn, error) {
+func (d *Connection) plainTCPDial(ctx context.Context, network string) (net.Conn, error) {
 	var (
 		dnsResolverIP        = "8.8.8.8:53" // Google DNS resolver.
 		dnsResolverProto     = "udp"        // Protocol to use for the DNS resolver
@@ -50,7 +48,7 @@ func (d *Dial) plainTCPDial(ctx context.Context, network string) (net.Conn, erro
 	return dialer.DialContext(ctx, network, d.addr)
 }
 
-func (d *Dial) wsDial() (net.Conn, error) {
+func (d *Connection) wsDial() (net.Conn, error) {
 	dialer := websocket.Dialer{
 		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return d.plainTCPDial(ctx, network)
@@ -76,10 +74,10 @@ func (d *Dial) wsDial() (net.Conn, error) {
 	}
 
 	conn, _, err := dialer.Dial(d.addr, nil)
-	return wsconnadapter.New(conn), err
+	return newWsConnAdapter(conn), err
 }
 
-/*func (d *Dial) wsDial() (net.Conn, error) {
+/*func (d *Connection) wsDial() (net.Conn, error) {
 	wsConn, err := d.wsDialer()
 	if err != nil {
 		if err := socks5.SendReply(socksStream.writer, statute.RepServerFailure, nil); err != nil {

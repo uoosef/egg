@@ -2,7 +2,7 @@ package client
 
 import (
 	"bytes"
-	"egg/dial"
+	"egg/internet"
 	socksStatute "egg/socks5/statute"
 	"egg/statute"
 	"encoding/binary"
@@ -40,12 +40,12 @@ func plainConnect(socksReq *statute.SocksReq, socksStream *socksStatute.Request,
 
 	// upload path
 	if pathType == statute2.Upload || pathType == statute2.TwoWay {
-		go func() { errCh <- dial.Copy(socksStream.reader, conn) }()
+		go func() { errCh <- internet.Copy(socksStream.reader, conn) }()
 	}
 
 	// download path
 	if pathType == statute2.Download || pathType == statute2.TwoWay {
-		go func() { errCh <- dial.Copy(conn, socksStream.writer) }()
+		go func() { errCh <- internet.Copy(conn, socksStream.writer) }()
 	}
 
 	// Wait
