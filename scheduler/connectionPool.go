@@ -1,4 +1,4 @@
-package connectionPool
+package scheduler
 
 import (
 	"context"

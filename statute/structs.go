@@ -33,7 +33,7 @@ type PathReq struct {
 	PType PathType
 }
 
-type TunnelPacketHeader struct {
+type PacketHeader struct {
 	Id          string
 	Command     CommandType
 	PayloadSize int
@@ -41,7 +41,7 @@ type TunnelPacketHeader struct {
 }
 
 type QueuePacket struct {
-	Header *TunnelPacketHeader
+	Header *PacketHeader
 	Body   []byte
 	Err    error
 }

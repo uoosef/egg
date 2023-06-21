@@ -56,9 +56,10 @@ func NewPersistentTunnel(id, addr, overwriteAddr string, shouldOverWriteAddress 
 		tunnelSendSequence:     0,
 		tunnelReceiveSequence:  0,
 	}
-	fmt.Printf("attemping to connecto to tunnel end point: %s", addr)
+	fmt.Printf("attemping to connect to tunnel end point: %s", addr)
 	err := conn.ReDial()
 	if err == nil {
+		conn.RunRoutines()
 		return conn, nil
 	}
 	return nil, err
@@ -81,8 +82,13 @@ func (tunnel *PersistentTunnel) ReDial() error {
 		tunnel.endpoint))
 }
 
+func (tunnel *PersistentTunnel) RunRoutines() {
+	go tunnel.readFromNetworkConnection()
+	go tunnel.writeToNetworkConnection()
+}
+
 // read from send queue and write to actual connection
-func (tunnel *PersistentTunnel) writeToActualConnection() {
+func (tunnel *PersistentTunnel) writeToNetworkConnection() {
 	for {
 		select {
 		case <-tunnel.ctx.Done():
@@ -110,7 +116,7 @@ func (tunnel *PersistentTunnel) writeToActualConnection() {
 			if queuePacket.Err != nil {
 				continue
 			}
-			err = tunnel.craftPacket(queuePacket.Body)
+			err = tunnel.craftPacket(queuePacket)
 			if err != nil {
 				panic(err)
 			}
@@ -128,7 +134,7 @@ func (tunnel *PersistentTunnel) writeToActualConnection() {
 }
 
 // read from actual connection and write to receive Queue
-func (tunnel *PersistentTunnel) readFromActualConnection() {
+func (tunnel *PersistentTunnel) readFromNetworkConnection() {
 	for {
 		select {
 		case <-tunnel.ctx.Done():
@@ -146,6 +152,8 @@ func (tunnel *PersistentTunnel) readFromActualConnection() {
 					Body:   packetBody,
 					Err:    er,
 				})
+				// increase tunnel receive sequence +1
+				tunnel.tunnelReceiveSequence++
 				if ew != nil {
 					panic("Memory error! unable to enqueue new object")
 				}
@@ -157,33 +165,27 @@ func (tunnel *PersistentTunnel) readFromActualConnection() {
 	}
 }
 
-func (tunnel *PersistentTunnel) craftPacket(buf []byte) error {
+func (tunnel *PersistentTunnel) craftPacket(queuePacket *statute.QueuePacket) error {
 	// 2 byte header size, header, data
-	command := statute.ContinueFlow
-	if tunnel.tunnelSendSequence == 0 {
-		command = statute.StartFlow
-	}
-	tunnelPacketHeader := statute.TunnelPacketHeader{
-		Id:          tunnel.id,
-		Command:     command,
-		PayloadSize: len(buf),
-		Sequence:    int64(tunnel.tunnelSendSequence),
-	}
+	/*	command := statute.ContinueFlow
+		if tunnel.tunnelSendSequence == 0 {
+			command = statute.StartFlow
+		}*/
 	var packetHeader bytes.Buffer        // Stand-in for a network connection
 	enc := gob.NewEncoder(&packetHeader) // Will write to network.
 	// Encode (send) the value.
-	err := enc.Encode(&tunnelPacketHeader)
+	err := enc.Encode(queuePacket.Header)
 	if err != nil {
 		return errors.New("unable to encode packet header struct to bytes")
 	}
 
 	bs := make([]byte, 2)
 	binary.BigEndian.PutUint16(bs, uint16(len(packetHeader.Bytes())))
-	tunnel.lastPacketToSend = append(append(bs, packetHeader.Bytes()...), buf...)
+	tunnel.lastPacketToSend = append(append(bs, packetHeader.Bytes()...), queuePacket.Body...)
 	return nil
 }
 
-func (tunnel *PersistentTunnel) readPacket(conn net.Conn) (*statute.TunnelPacketHeader, []byte, int, error) {
+func (tunnel *PersistentTunnel) readPacket(conn net.Conn) (*statute.PacketHeader, []byte, int, error) {
 	// part1: 2 byte header size, part2: header, part3: data
 	// header is a struct that converts to go by gob
 	_p1 := make([]byte, 2)
@@ -204,7 +206,7 @@ func (tunnel *PersistentTunnel) readPacket(conn net.Conn) (*statute.TunnelPacket
 	var _tmp bytes.Buffer
 	_tmp.Write(_p2)
 	dec := gob.NewDecoder(&_tmp) // Will read from network.
-	var tunnelPacketHeader statute.TunnelPacketHeader
+	var tunnelPacketHeader statute.PacketHeader
 	err = dec.Decode(&tunnelPacketHeader)
 	if err != nil {
 		return nil, nil, 0, errors.New("packet decompress error unable to read packet header bytes from network")
@@ -214,29 +216,27 @@ func (tunnel *PersistentTunnel) readPacket(conn net.Conn) (*statute.TunnelPacket
 	if err != nil {
 		return nil, nil, 0, errors.New("packet decompress error unable to read packet bytes from network")
 	}
-	// increase tunnel receive sequence +1
-	tunnel.tunnelReceiveSequence++
 	return &tunnelPacketHeader, packetBody, len(packetBody), nil
 }
 
-func (tunnel *PersistentTunnel) Read() (*statute.QueuePacket, error) {
+func (tunnel *PersistentTunnel) Read(ctx context.Context) (*statute.QueuePacket, error) {
 	tunnel.readMutex.Lock()
 	defer tunnel.readMutex.Unlock()
 
-	_bytesRead, err := tunnel.receiveQue.DequeueOrWaitForNextElement()
-	b := _bytesRead.(*statute.QueuePacket)
+	_p, err := tunnel.receiveQue.DequeueOrWaitForNextElementContext(ctx)
+	p := _p.(*statute.QueuePacket)
 	if err != nil {
 		return nil, err
 	}
 
-	return b, err
+	return p, err
 }
 
-func (tunnel *PersistentTunnel) Write(b *statute.QueuePacket) error {
+func (tunnel *PersistentTunnel) Write(p *statute.QueuePacket) error {
 	tunnel.writeMutex.Lock()
 	defer tunnel.writeMutex.Unlock()
 
-	err := tunnel.sendQueue.Enqueue(b)
+	err := tunnel.sendQueue.Enqueue(p)
 
 	return err
 }

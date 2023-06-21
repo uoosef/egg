@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"egg/connectionPool"
+	"egg/scheduler"
 	"egg/socks5"
 	socksStatute "egg/socks5/statute"
 	"egg/statute"
@@ -12,7 +12,7 @@ import (
 )
 
 type Client struct {
-	cp           *connectionPool.ConnectionPool
+	cp           *scheduler.ConnectionPool
 	fifo         *utils.FIFO
 	clientId     string
 	endpoint     string
@@ -22,7 +22,7 @@ type Client struct {
 
 func NewClient(endpoint string, relayEnabled bool, muxEnabled bool) (*socks5.Server, error) {
 	fifo := utils.NewFIFO()
-	cp := connectionPool.NewConnectionPool()
+	cp := scheduler.NewConnectionPool()
 	clientId := utils.NewUUID()
 	c := Client{
 		cp,
