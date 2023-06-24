@@ -10,6 +10,7 @@ type Request struct {
 	ReqID       string // A unique ReqID to identify a connection
 	Network     NetworkType
 	Ctx         context.Context
+	Dest        string
 	Writer      io.Writer
 	Reader      io.Reader
 	CloseSignal chan error

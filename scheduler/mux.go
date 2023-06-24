@@ -37,7 +37,8 @@ func NewMuxScheduler() *muxScheduler {
 		cancelCtx:        cancelCtx,
 		cancelCtxCalled:  false,
 	}
-
+	go m.RouteQueuePacketsThroughTunnels()
+	go m.SendPacketsFromQueueToSocksConnections()
 	return m
 }
 
@@ -166,15 +167,58 @@ func (mux *muxScheduler) SendPacketsFromQueueToSocksConnections() {
 	}
 }
 
-// register a socks connection in cache
-func (mux *muxScheduler) registerSocksConnection(t statute.NetworkType, closeSignal chan error, ctx context.Context, writer io.Writer, reader io.Reader) {
+// FromSocksConnectionToSendQueue read packets from registered socks connection and write them to send queue
+func (mux *muxScheduler) FromSocksConnectionToSendQueue(flowId string, socksCtx context.Context, reader io.Reader) {
+	buf := statute.BufferPool.Get()
+	defer statute.BufferPool.Put(buf)
+	command := statute.StartFlow
+	for sequence := 0; ; sequence++ {
+		select {
+		case <-socksCtx.Done():
+			// TODO: send close packet if connection is open
+			return
+		case <-mux.ctx.Done():
+			return
+		default:
+			// read nr from socks connection
+			nr, err := reader.Read(buf[:cap(buf)])
+			if err != nil {
+				fmt.Printf("Error while reading nr from socks connection: %s\n", err.Error())
+				continue
+			}
+			if sequence > 0 {
+				command = statute.ContinueFlow
+			}
+			queuePacket := &statute.QueuePacket{
+				Header: &statute.PacketHeader{
+					Id:          flowId,
+					Command:     command,
+					PayloadSize: nr,
+					Sequence:    int64(sequence),
+				},
+				Body: buf[:nr],
+				Err:  nil,
+			}
+			// write nr to send queue
+			err = sendFifo.Enqueue(queuePacket)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+// RegisterSocksConnection register a socks connection in cache and run the reader in separate goroutine
+func (mux *muxScheduler) RegisterSocksConnection(t statute.NetworkType, closeSignal chan error, ctx context.Context, writer io.Writer, reader io.Reader, dest string) {
 	cID := utils.NewUUID()
 	mux.socksConnections.Set(cID, statute.Request{
 		ReqID:       cID,
 		Network:     t,
+		Dest:        dest,
 		Ctx:         ctx,
 		Writer:      writer,
 		Reader:      reader,
 		CloseSignal: closeSignal,
 	})
+	go mux.FromSocksConnectionToSendQueue(cID, ctx, reader)
 }

@@ -22,7 +22,7 @@ func NewScheduler(schedulerType string) *scheduler {
 	}
 }
 
-// sink is responsible for making actual network internet
-func sink() {
-
+// Register new socks request and return socks response channel
+func (s *scheduler) Register() chan []byte {
+	return nil
 }

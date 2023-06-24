@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"egg/scheduler"
 	"egg/socks5"
 	socksStatute "egg/socks5/statute"
 	"egg/statute"
@@ -12,8 +11,6 @@ import (
 )
 
 type Client struct {
-	cp           *scheduler.ConnectionPool
-	fifo         *utils.FIFO
 	clientId     string
 	endpoint     string
 	relayEnabled bool
@@ -21,12 +18,8 @@ type Client struct {
 }
 
 func NewClient(endpoint string, relayEnabled bool, muxEnabled bool) (*socks5.Server, error) {
-	fifo := utils.NewFIFO()
-	cp := scheduler.NewConnectionPool()
 	clientId := utils.NewUUID()
 	c := Client{
-		cp,
-		fifo,
 		clientId,
 		endpoint,
 		relayEnabled,
@@ -43,10 +36,9 @@ func NewClient(endpoint string, relayEnabled bool, muxEnabled bool) (*socks5.Ser
 	return s5, nil
 }
 
-func (c *Client) handle(ctx context.Context, writer io.Writer, socksRequest *socks5.Request, netType statute.NetworkType) error {
+func (c *Client) handle(socksCtx context.Context, writer io.Writer, socksRequest *socks5.Request, netType statute.NetworkType) error {
 	fmt.Println(socksRequest.RawDestAddr)
 	closeSignal := make(chan error)
-	id := c.cp.NewConnection(netType, closeSignal, ctx, writer, socksRequest.Reader)
 
 	// it informs the socks transport that connection to remote host was successfully established
 	if err := socks5.SendReply(writer, socksStatute.RepSuccess, nil); err != nil {
@@ -70,3 +62,5 @@ func (c *Client) handle(ctx context.Context, writer io.Writer, socksRequest *soc
 	// terminate the connection
 	return <-closeSignal
 }
+
+// handle reader function, it sends a channel to scheduler and read from it and write its data to socks writer

@@ -5,7 +5,6 @@ import (
 	"context"
 	"egg/internet"
 	"egg/statute"
-	"egg/utils"
 	"encoding/binary"
 	"encoding/gob"
 	"errors"
@@ -21,8 +20,8 @@ type PersistentTunnel struct {
 	conn                   net.Conn
 	readMutex              sync.Mutex
 	writeMutex             sync.Mutex
-	sendQueue              *utils.FIFO
-	receiveQue             *utils.FIFO
+	sendChan               chan *statute.QueuePacket
+	receiveChan            chan *statute.QueuePacket
 	ctx                    context.Context
 	cancelCtx              context.CancelFunc
 	endpoint               string
@@ -93,7 +92,7 @@ func (tunnel *PersistentTunnel) writeToNetworkConnection() {
 		select {
 		case <-tunnel.ctx.Done():
 			return
-		default:
+		case queuePacket := <-tunnel.sendChan:
 			// if tunnel last packet to write is not null write it to connection
 			// instead of crafting new packet then make it null otherwise craft
 			// new packet and send it through actual connection and if it encounters error
@@ -108,15 +107,7 @@ func (tunnel *PersistentTunnel) writeToNetworkConnection() {
 					continue
 				}
 			}
-			_queuePacket, err := tunnel.sendQueue.Dequeue()
-			if err != nil {
-				continue
-			}
-			queuePacket := _queuePacket.(*statute.QueuePacket)
-			if queuePacket.Err != nil {
-				continue
-			}
-			err = tunnel.craftPacket(queuePacket)
+			err := tunnel.craftPacket(queuePacket)
 			if err != nil {
 				panic(err)
 			}
@@ -147,16 +138,13 @@ func (tunnel *PersistentTunnel) readFromNetworkConnection() {
 				continue
 			}
 			if nr > 0 {
-				ew := tunnel.receiveQue.Enqueue(&statute.QueuePacket{
+				tunnel.receiveChan <- &statute.QueuePacket{
 					Header: tunnelPacketHeader,
 					Body:   packetBody,
 					Err:    er,
-				})
+				}
 				// increase tunnel receive sequence +1
 				tunnel.tunnelReceiveSequence++
-				if ew != nil {
-					panic("Memory error! unable to enqueue new object")
-				}
 			}
 			if tunnel.connectionIsClosed {
 				return
@@ -220,25 +208,22 @@ func (tunnel *PersistentTunnel) readPacket(conn net.Conn) (*statute.PacketHeader
 }
 
 func (tunnel *PersistentTunnel) Read(ctx context.Context) (*statute.QueuePacket, error) {
-	tunnel.readMutex.Lock()
-	defer tunnel.readMutex.Unlock()
-
-	_p, err := tunnel.receiveQue.DequeueOrWaitForNextElementContext(ctx)
-	p := _p.(*statute.QueuePacket)
-	if err != nil {
-		return nil, err
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case p := <-tunnel.receiveChan:
+		return p, nil
 	}
-
-	return p, err
 }
 
 func (tunnel *PersistentTunnel) Write(p *statute.QueuePacket) error {
-	tunnel.writeMutex.Lock()
-	defer tunnel.writeMutex.Unlock()
+	if tunnel.connectionIsClosed {
+		return errors.New("connection is closed")
+	}
 
-	err := tunnel.sendQueue.Enqueue(p)
+	tunnel.sendChan <- p
 
-	return err
+	return nil
 }
 
 func (tunnel *PersistentTunnel) Close() error {
