@@ -5,6 +5,7 @@ import (
 	"context"
 	"egg/internet"
 	"egg/statute"
+	"egg/utils"
 	"encoding/binary"
 	"encoding/gob"
 	"errors"
@@ -16,22 +17,19 @@ import (
 )
 
 type PersistentTunnel struct {
-	id                     string
-	conn                   net.Conn
-	readMutex              sync.Mutex
-	writeMutex             sync.Mutex
-	sendChan               chan *statute.QueuePacket
-	receiveChan            chan *statute.QueuePacket
-	ctx                    context.Context
-	cancelCtx              context.CancelFunc
-	endpoint               string
-	overwriteAddr          string
-	shouldOverWriteAddress bool
-	tunnelSendSequence     int
-	tunnelReceiveSequence  int
-	lastPacketToSend       []byte
-	reconnecting           bool
-	connectionIsClosed     bool
+	id                    string
+	conn                  net.Conn
+	readMutex             sync.Mutex
+	writeMutex            sync.Mutex
+	sendChan              chan *statute.QueuePacket
+	receiveChan           chan *statute.QueuePacket
+	ctx                   context.Context
+	cancelCtx             context.CancelFunc
+	tunnelSendSequence    int
+	tunnelReceiveSequence int
+	lastPacketToSend      []byte
+	reconnecting          bool
+	connectionIsClosed    bool
 }
 
 /*
@@ -42,20 +40,19 @@ type PersistentTunnel struct {
 	3- shutdown --> client's concern
 */
 
-func NewPersistentTunnel(id, addr, overwriteAddr string, shouldOverWriteAddress bool) (*PersistentTunnel, error) {
+var cfg = utils.Configuration
+
+func NewPersistentTunnel(id string) (*PersistentTunnel, error) {
 	ctx, cancelCtx := context.WithCancel(context.TODO())
 
 	conn := &PersistentTunnel{
-		id:                     id,
-		ctx:                    ctx,
-		cancelCtx:              cancelCtx,
-		endpoint:               addr,
-		overwriteAddr:          overwriteAddr,
-		shouldOverWriteAddress: shouldOverWriteAddress,
-		tunnelSendSequence:     0,
-		tunnelReceiveSequence:  0,
+		id:                    id,
+		ctx:                   ctx,
+		cancelCtx:             cancelCtx,
+		tunnelSendSequence:    0,
+		tunnelReceiveSequence: 0,
 	}
-	fmt.Printf("attemping to connect to tunnel end point: %s", addr)
+	fmt.Printf("attemping to connect to tunnel end point: %s", cfg.Endpoint)
 	err := conn.ReDial()
 	if err == nil {
 		conn.RunRoutines()
@@ -68,7 +65,7 @@ func (tunnel *PersistentTunnel) ReDial() error {
 	var conn net.Conn
 	var err error
 	for retries := 0; retries < 10; retries++ {
-		conn, err = internet.Dial(tunnel.endpoint, tunnel.overwriteAddr, tunnel.shouldOverWriteAddress)
+		conn, err = internet.Dial()
 		if err == nil {
 			tunnel.conn = conn
 			return nil
@@ -78,7 +75,7 @@ func (tunnel *PersistentTunnel) ReDial() error {
 	}
 	return errors.New(fmt.Sprintf(
 		"Unable to connect to %s maximum retries exceeded, wraping up...",
-		tunnel.endpoint))
+		cfg.Endpoint))
 }
 
 func (tunnel *PersistentTunnel) RunRoutines() {

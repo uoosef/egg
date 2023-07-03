@@ -6,10 +6,9 @@ import (
 	"egg/tunnel"
 	"egg/utils"
 	"fmt"
-	"io"
 )
 
-// mux scheduler is responsible for making finite number of persistent tunnels and
+// mux Scheduler is responsible for making finite number of persistent tunnels and
 // move packets through them periodically
 
 var (
@@ -17,7 +16,7 @@ var (
 	receiveFifo *utils.FIFO
 )
 
-type muxScheduler struct {
+type Scheduler struct {
 	tunnels          *utils.Cache
 	tunnelsIDS       []string
 	socksConnections *utils.Cache
@@ -26,10 +25,10 @@ type muxScheduler struct {
 	cancelCtxCalled  bool
 }
 
-func NewMuxScheduler() *muxScheduler {
+func NewScheduler() *Scheduler {
 	ctx, cancelCtx := context.WithCancel(context.TODO())
 
-	m := &muxScheduler{
+	m := &Scheduler{
 		tunnels:          utils.NewCache(0),
 		tunnelsIDS:       []string{},
 		socksConnections: utils.NewCache(0),
@@ -42,7 +41,7 @@ func NewMuxScheduler() *muxScheduler {
 	return m
 }
 
-func (mux *muxScheduler) makeTunnels(
+func (mux *Scheduler) makeTunnels(
 	size int, endpoint string,
 	overwriteAddr string,
 	shouldOverWriteAddress bool,
@@ -51,7 +50,7 @@ func (mux *muxScheduler) makeTunnels(
 		// make a tunnel
 		tID := utils.NewUUID()
 		mux.tunnelsIDS = append(mux.tunnelsIDS, tID)
-		pt, err := tunnel.NewPersistentTunnel(tID, endpoint, overwriteAddr, shouldOverWriteAddress)
+		pt, err := tunnel.NewPersistentTunnel(tID)
 		if err != nil {
 			fmt.Printf("Attempt to make tunnel %s failed with error: %s, retrying...\n", tID, err.Error())
 			i--
@@ -63,7 +62,7 @@ func (mux *muxScheduler) makeTunnels(
 }
 
 // RouteQueuePacketsThroughTunnels route packets through tunnels, it should run in separate go routine
-func (mux *muxScheduler) RouteQueuePacketsThroughTunnels() {
+func (mux *Scheduler) RouteQueuePacketsThroughTunnels() {
 	var i uint8
 	for i = 0; ; i++ {
 		// get packet from send queue
@@ -94,7 +93,7 @@ func (mux *muxScheduler) RouteQueuePacketsThroughTunnels() {
 }
 
 // GetPacketsFromTunnelsToQueue get packets from tunnels and put them in the reception cache
-func (mux *muxScheduler) GetPacketsFromTunnelsToQueue() {
+func (mux *Scheduler) GetPacketsFromTunnelsToQueue() {
 	for _, tunnelID := range mux.tunnelsIDS {
 		go func(tunnelID string) {
 			for {
@@ -127,7 +126,7 @@ func (mux *muxScheduler) GetPacketsFromTunnelsToQueue() {
 // it should write body of packets in socks connections writer
 // if packet header indicated that connection is closed it should
 // close the connection and remove it from cache
-func (mux *muxScheduler) SendPacketsFromQueueToSocksConnections() {
+func (mux *Scheduler) SendPacketsFromQueueToSocksConnections() {
 	for {
 		select {
 		case <-mux.ctx.Done():
@@ -153,12 +152,12 @@ func (mux *muxScheduler) SendPacketsFromQueueToSocksConnections() {
 			if packet.(*statute.QueuePacket).Header.Command == statute.EndFlow {
 				// TODO: fix packet flow order(if some packet arrives faster than it should, cache it for certain
 				// amount of time)
-				c.(statute.Request).CloseSignal <- nil
+				c.(statute.SocksRequest).CloseSignal <- nil
 				mux.socksConnections.Delete(cID)
 				continue
 			}
 			// write packet body in socks connection writer
-			_, err = c.(statute.Request).Writer.Write(packet.(*statute.QueuePacket).Body)
+			_, err = c.(statute.SocksRequest).Writer.Write(packet.(*statute.QueuePacket).Body)
 			if err != nil {
 				fmt.Printf("Error while writing packet body in socks connection: %s\n", err.Error())
 				continue
@@ -168,7 +167,7 @@ func (mux *muxScheduler) SendPacketsFromQueueToSocksConnections() {
 }
 
 // FromSocksConnectionToSendQueue read packets from registered socks connection and write them to send queue
-func (mux *muxScheduler) FromSocksConnectionToSendQueue(flowId string, socksCtx context.Context, reader io.Reader) {
+func (mux *Scheduler) FromSocksConnectionToSendQueue(flowId string) {
 	buf := statute.BufferPool.Get()
 	defer statute.BufferPool.Put(buf)
 	command := statute.StartFlow
@@ -209,16 +208,7 @@ func (mux *muxScheduler) FromSocksConnectionToSendQueue(flowId string, socksCtx 
 }
 
 // RegisterSocksConnection register a socks connection in cache and run the reader in separate goroutine
-func (mux *muxScheduler) RegisterSocksConnection(t statute.NetworkType, closeSignal chan error, ctx context.Context, writer io.Writer, reader io.Reader, dest string) {
-	cID := utils.NewUUID()
-	mux.socksConnections.Set(cID, statute.Request{
-		ReqID:       cID,
-		Network:     t,
-		Dest:        dest,
-		Ctx:         ctx,
-		Writer:      writer,
-		Reader:      reader,
-		CloseSignal: closeSignal,
-	})
-	go mux.FromSocksConnectionToSendQueue(cID, ctx, reader)
+func (mux *Scheduler) RegisterSocksConnection(sr *statute.SocksRequest) {
+	mux.socksConnections.Set(sr.ID, sr)
+	go mux.FromSocksConnectionToSendQueue(sr.ID)
 }

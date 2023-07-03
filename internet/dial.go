@@ -2,6 +2,7 @@ package internet
 
 import (
 	"context"
+	"egg/utils"
 	"github.com/gorilla/websocket"
 	tls "github.com/refraction-networking/utls"
 	"net"
@@ -15,11 +16,12 @@ type Connection struct {
 	shouldOverWriteAddress bool
 }
 
-func Dial(addr, overwriteAddr string, shouldOverWriteAddress bool) (net.Conn, error) {
+func Dial() (net.Conn, error) {
+	cfg := utils.Configuration
 	c := &Connection{
-		addr,
-		overwriteAddr,
-		shouldOverWriteAddress,
+		cfg.Endpoint,
+		cfg.OverWriteAddress,
+		cfg.ShouldOverWriteAddress,
 	}
 	return c.wsDial()
 }

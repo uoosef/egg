@@ -6,8 +6,8 @@ import (
 	"net"
 )
 
-type Request struct {
-	ReqID       string // A unique ReqID to identify a connection
+type SocksRequest struct {
+	ID          string // A unique ID to identify a connection
 	Network     NetworkType
 	Ctx         context.Context
 	Dest        string
@@ -19,12 +19,6 @@ type Request struct {
 type ServerConnection struct {
 	Id   string // A unique Id to identify a connection
 	Conn net.Conn
-}
-
-type SocksReq struct {
-	Id   string
-	Dest string
-	Net  NetworkType
 }
 
 type PathReq struct {
